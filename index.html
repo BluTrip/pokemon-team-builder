@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Offline Pokémon Team Builder</title>
+<style>
+:root{--bg:#10151d;--panel:#1a2330;--panel2:#202c3b;--line:#344456;--text:#edf3fa;--muted:#a7b5c5;--accent:#65c7d0;--accent2:#f4c45e;--danger:#ff7777}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(140deg,#0d1219,#172231);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:22px max(18px,calc((100vw - 1180px)/2));border-bottom:1px solid var(--line);background:#111a25}
+h1{margin:0;font-size:clamp(22px,4vw,32px)}header p{margin:5px 0 0;color:var(--muted)}
+main{max-width:1180px;margin:22px auto;padding:0 16px 50px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+button,select,input,textarea{font:inherit}button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:8px;padding:9px 13px;cursor:pointer}
+button:hover{border-color:var(--accent)}button.primary{background:#176b75;border-color:#2b9ca7}button.danger{color:#ffaaaa}
+input,select,textarea{background:#101923;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;min-width:0;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid #65c7d055;border-color:var(--accent)}
+label{display:block;color:var(--muted);font-size:12px;margin:0 0 4px}
+.topgrid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;background:var(--panel);padding:14px;border:1px solid var(--line);border-radius:12px;margin-bottom:16px}
+.field{min-width:0}.teamgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.cardhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.cardhead h2{font-size:17px;margin:0}.slot{color:var(--accent);font-weight:700}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
+.moves{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:10px 0}
+.stats input{text-align:center;padding:7px 2px}.stats label{text-align:center}
+.small{font-size:12px;color:var(--muted)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:16px}
+textarea{min-height:210px;resize:vertical;font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+#status{color:var(--accent2);min-height:22px;margin-top:8px}
+@media(max-width:760px){.teamgrid,.bottom{grid-template-columns:1fr}.topgrid{grid-template-columns:1fr 1fr}}
+@media(max-width:440px){.topgrid{grid-template-columns:1fr}.stats{gap:3px}.stats input{font-size:12px}}
+</style>
+
+<meta name="theme-color" content="#111a25">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+</head>
+<body>
+<header><h1>Pokémon Team Builder <span style="color:var(--accent)">Offline</span></h1><p>Build teams locally, save them in this browser, and export Showdown-compatible team text.</p></header>
+<main>
+<div class="toolbar">
+  <button class="primary" id="add">＋ Add Pokémon</button>
+  <button id="save">Save team</button><button id="load">Load saved team</button>
+  <button id="clear" class="danger">Clear team</button>
+  <span class="small" id="count">0 / 6 Pokémon</span>
+</div>
+<section class="topgrid">
+ <div class="field"><label>Team name</label><input id="teamName" value="My Team" maxlength="60"></div>
+ <div class="field"><label>Format / ruleset (label only)</label><select id="format"><option>Gen 9 OU</option><option>VGC 2026</option><option>Gen 9 National Dex</option><option>Gen 9 Ubers</option><option>Gen 9 Doubles OU</option><option>Mix and Mega</option><option>Custom</option></select></div>
+ <div class="field"><label>Generation</label><select id="generation"><option>9</option><option>8</option><option>7</option><option>6</option><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></div>
+</section>
+<div id="team" class="teamgrid"></div>
+<section class="bottom">
+ <div class="card"><div class="cardhead"><h2>Showdown export / import</h2></div>
+ <p class="small">Export creates standard Pokémon Showdown paste text. You can also paste an existing team here and import it.</p>
+ <textarea id="paste" spellcheck="false" placeholder="Paste a Pokémon Showdown team here, or click Export team…"></textarea>
+ <div class="actions"><button class="primary" id="export">Export team</button><button id="copy">Copy text</button><button id="import">Import pasted team</button></div><div id="status"></div>
+ </div>
+ <div class="card"><div class="cardhead"><h2>Quick notes</h2></div>
+ <p class="small">This is a standalone offline team editor, not a battle simulator. Pokémon, move, item, and ability fields accept free text so it can handle custom formats, future releases, and unusual sets without needing an online database.</p>
+ <p class="small">EVs are ordered HP / Atk / Def / SpA / SpD / Spe (maximum 510 total; maximum 252 per stat). IVs default to 31. Set level, nature, gender, shiny status, and Tera type as needed.</p>
+ <p class="small">Saved teams stay in this browser's local storage. Use Export and keep a text backup if you want to move teams between devices or browsers.</p>
+ </div>
+</section>
+</main>
+<datalist id="natures"><option>Adamant</option><option>Jolly</option><option>Timid</option><option>Modest</option><option>Bold</option><option>Calm</option><option>Impish</option><option>Careful</option><option>Quiet</option><option>Brave</option><option>Relaxed</option><option>Sassy</option><option>Naive</option><option>Hasty</option><option>Lonely</option><option>Naughty</option><option>Mild</option><option>Rash</option><option>Docile</option><option>Hardy</option><option>Serious</option><option>Bashful</option><option>Quirky</option><option> Lax</option><option>Gentle</option></datalist>
+<script>
+const $=id=>document.getElementById(id);
+let mons=[];
+const statNames=['HP','Atk','Def','SpA','SpD','Spe'];
+const commonMons=['Pikachu','Charizard','Venusaur','Blastoise','Gengar','Dragonite','Tyranitar','Salamence','Metagross','Garchomp','Lucario','Rotom-Wash','Ferrothorn','Landorus-Therian','Dragapult','Corviknight','Kingambit','Great Tusk','Flutter Mane','Ogerpon-Wellspring','Raging Bolt','Incineroar','Amoonguss','Urshifu-Rapid-Strike','Rillaboom','Calyrex-Shadow','Miraidon','Koraidon','Sylveon','Staraptor','Aerodactyl','Iron Hands'];
+const blank=()=>({species:'',nickname:'',item:'',ability:'',nature:'',tera:'',level:100,gender:'',shiny:false,moves:['','','',''],evs:[0,0,0,0,0,0],ivs:[31,31,31,31,31,31]});
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function render(){
+ $('count').textContent=mons.length+' / 6 Pokémon';
+ $('add').disabled=mons.length>=6;
+ $('team').innerHTML=mons.map((p,i)=>`<article class="card" data-i="${i}">
+ <div class="cardhead"><h2><span class="slot">#${i+1}</span> ${esc(p.species||'Empty slot')}</h2><button class="danger remove">Remove</button></div>
+ <div class="row"><div><label>Pokémon species</label><input class="species" list="specieslist" value="${esc(p.species)}" placeholder="e.g. Garchomp"></div><div><label>Nickname (optional)</label><input data-k="nickname" value="${esc(p.nickname)}"></div></div>
+ <div class="row"><div><label>Item</label><input data-k="item" list="itemlist" value="${esc(p.item)}" placeholder="e.g. Choice Scarf"></div><div><label>Ability</label><input data-k="ability" value="${esc(p.ability)}" placeholder="e.g. Rough Skin"></div></div>
+ <div class="row"><div><label>Nature</label><input data-k="nature" list="natures" value="${esc(p.nature)}" placeholder="e.g. Jolly"></div><div><label>Tera type (optional)</label><input data-k="tera" value="${esc(p.tera)}" placeholder="e.g. Steel"></div></div>
+ <div class="moves">${p.moves.map((m,j)=>`<div><label>Move ${j+1}</label><input data-m="${j}" value="${esc(m)}" list="movelist" placeholder="Move name"></div>`).join('')}</div>
+ <label>EVs</label><div class="stats">${p.evs.map((v,j)=>`<div><label>${statNames[j]}</label><input type="number" min="0" max="252" data-stat="evs" data-s="${j}" value="${v}"></div>`).join('')}</div>
+ <label>IVs</label><div class="stats">${p.ivs.map((v,j)=>`<div><label>${statNames[j]}</label><input type="number" min="0" max="31" data-stat="ivs" data-s="${j}" value="${v}"></div>`).join('')}</div>
+ <div class="row"><div><label>Level</label><input type="number" min="1" max="100" data-k="level" value="${p.level}"></div><div><label>Gender</label><select data-k="gender"><option value="" ${!p.gender?'selected':''}>Unspecified</option><option ${p.gender==='M'?'selected':''}>M</option><option ${p.gender==='F'?'selected':''}>F</option></select></div></div>
+ <label><input type="checkbox" data-k="shiny" ${p.shiny?'checked':''} style="width:auto"> Shiny</label>
+ </article>`).join('');
+ $('team').querySelectorAll('article').forEach(card=>{
+  let i=+card.dataset.i;
+  card.querySelector('.remove').onclick=()=>{mons.splice(i,1);render()};
+  card.querySelector('.species').oninput=e=>{mons[i].species=e.target.value;card.querySelector('h2').innerHTML='<span class="slot">#'+(i+1)+'</span> '+esc(e.target.value||'Empty slot')};
+  card.querySelectorAll('[data-k]').forEach(el=>el.addEventListener('input',()=>{let k=el.dataset.k;mons[i][k]=k==='level'?Number(el.value):k==='shiny'?el.checked:el.value}));
+  card.querySelectorAll('[data-m]').forEach(el=>el.oninput=()=>mons[i].moves[+el.dataset.m]=el.value);
+  card.querySelectorAll('[data-stat]').forEach(el=>el.oninput=()=>{mons[i][el.dataset.stat][+el.dataset.s]=Math.max(0,Number(el.value)||0)});
+ });
+}
+function add(){if(mons.length<6){mons.push(blank());render()}}
+$('add').onclick=add;add();
+function exportTeam(){
+ return mons.filter(p=>p.species.trim()).map(p=>{
+  const name=p.nickname.trim()||p.species.trim();
+  const species=p.nickname.trim()?p.species.trim():'';
+  const ev=p.evs.every(x=>x===0)?'':p.evs.map(x=>x||'').join(',');
+  const iv=p.ivs.every(x=>x===31)?'':p.ivs.map(x=>x===31?'':x).join(',');
+  const moves=p.moves.filter(Boolean).join(', ');
+  let lines=[name+(species?' ('+species+')':''),p.item?' @ '+p.item:'',p.ability?'\\nAbility: '+p.ability:'',p.level!==100?'\\nLevel: '+p.level:'',p.gender?'\\n'+(p.gender==='M'?'Male':'Female'):'',p.shiny?'\\nShiny: Yes':'',p.tera?'\\nTera Type: '+p.tera:'',moves?'\\n- '+moves.replace(/, /g,'\\n- '):'',p.nature?'\\n'+p.nature+' Nature':'',ev?'\\nEVs: '+p.evs.map((v,i)=>v?`${v} ${statNames[i]}`:'').filter(Boolean).join(' / '):'',iv?'\\nIVs: '+p.ivs.map((v,i)=>v!==31?`${v} ${statNames[i]}`:'').filter(Boolean).join(' / '):''];
+  return lines.join('').trim();
+ }).join('\\n\\n');
+}
+$('export').onclick=()=>{$('paste').value=exportTeam();$('status').textContent='Exported '+mons.filter(p=>p.species).length+' Pokémon.'};
+$('copy').onclick=async()=>{if(!$('paste').value)$('paste').value=exportTeam();try{await navigator.clipboard.writeText($('paste').value);$('status').textContent='Copied to clipboard.'}catch(e){$('paste').select();$('status').textContent='Select the text and copy it manually.'}};
+function parseImport(txt){
+ const chunks=txt.trim().split(/\n\s*\n/).filter(Boolean).slice(0,6);
+ return chunks.map(chunk=>{
+  let p=blank(),ls=chunk.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),head=ls.shift()||'';
+  let h=head.match(/^(.*?)\s*(?:\((.*?)\))?(?:\s*@\s*(.*))?$/);
+  p.nickname=(h?.[1]||'').trim();p.species=(h?.[2]||h?.[1]||'').trim();p.item=(h?.[3]||'').trim();
+  for(let l of ls){
+   if(l.startsWith('Ability:'))p.ability=l.slice(8).trim();
+   else if(l.startsWith('Level:'))p.level=Number(l.slice(6).trim())||100;
+   else if(l.startsWith('Tera Type:'))p.tera=l.slice(10).trim();
+   else if(l.startsWith('Shiny:'))p.shiny=/yes/i.test(l);
+   else if(l==='Male')p.gender='M';else if(l==='Female')p.gender='F';
+   else if(l.endsWith(' Nature'))p.nature=l.replace(/ Nature$/,'').trim();
+   else if(l.startsWith('EVs:')||l.startsWith('IVs:')){let key=l.startsWith('EVs:')?'evs':'ivs';let arr=key==='evs'?[0,0,0,0,0,0]:[31,31,31,31,31,31];let re=/(\d+)\s+(HP|Atk|Def|SpA|SpD|Spe)/g,m;while((m=re.exec(l)))arr[statNames.indexOf(m[2])]=+m[1];p[key]=arr}
+   else if(l.startsWith('- ')){let ix=p.moves.findIndex(x=>!x);if(ix>=0)p.moves[ix]=l.slice(2).trim()}
+  }
+  if(!p.nickname)p.nickname='';return p;
+ });
+}
+$('import').onclick=()=>{try{let parsed=parseImport($('paste').value);if(!parsed.length)throw Error('No team text found');mons=parsed;render();$('status').textContent='Imported '+mons.length+' Pokémon.'}catch(e){$('status').textContent='Could not import: '+e.message}};
+$('save').onclick=()=>{let teams=JSON.parse(localStorage.getItem('offlinePokemonTeams')||'{}');let name=$('teamName').value.trim()||'My Team';teams[name]={mons,format:$('format').value,generation:$('generation').value};localStorage.setItem('offlinePokemonTeams',JSON.stringify(teams));$('status').textContent='Saved "'+name+'" in this browser.'};
+$('load').onclick=()=>{let teams=JSON.parse(localStorage.getItem('offlinePokemonTeams')||'{}'),names=Object.keys(teams);if(!names.length){$('status').textContent='No saved teams found.';return}let name=prompt('Enter a saved team name:\\n'+names.join('\\n'),names[0]);if(name&&teams[name]){$('teamName').value=name;$('format').value=teams[name].format||'Custom';$('generation').value=teams[name].generation||'9';mons=teams[name].mons;render();$('status').textContent='Loaded "'+name+'".'}};
+$('clear').onclick=()=>{if(confirm('Clear the current team?')){mons=[];render();$('status').textContent='Team cleared.'}};
+const dl=document.createElement('datalist');dl.id='specieslist';commonMons.forEach(x=>{let o=document.createElement('option');o.value=x;dl.append(o)});document.body.append(dl);
+const ml=document.createElement('datalist');ml.id='movelist';['Protect','Earthquake','Close Combat','U-turn','Knock Off','Stealth Rock','Spikes','Rapid Spin','Swords Dance','Dragon Dance','Nasty Plot','Calm Mind','Thunderbolt','Volt Switch','Ice Beam','Flamethrower','Fire Blast','Hydro Pump','Surf','Recover','Roost','Sucker Punch','Shadow Ball','Moonblast','Play Rough','Will-O-Wisp','Toxic','Tailwind','Fake Out','Parting Shot','Trick Room','Helping Hand','Wide Guard','Follow Me','Rage Powder','Tera Blast','Leaf Storm','Make It Rain','Extreme Speed'].forEach(x=>{let o=document.createElement('option');o.value=x;ml.append(o)});document.body.append(ml);
+const il=document.createElement('datalist');il.id='itemlist';['Leftovers','Choice Band','Choice Specs','Choice Scarf','Life Orb','Focus Sash','Assault Vest','Heavy-Duty Boots','Rocky Helmet','Covert Cloak','Clear Amulet','Sitrus Berry','Safety Goggles','Booster Energy','Eviolite','Black Sludge','Air Balloon','Weakness Policy','Mental Herb','Mystic Water','Charcoal','Expert Belt'].forEach(x=>{let o=document.createElement('option');o.value=x;il.append(o)});document.body.append(il);
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(console.error));
+}
+</script>
+</body></html>

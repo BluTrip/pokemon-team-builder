@@ -1,0 +1,11 @@
+{
+  "name": "Offline Pokémon Team Builder",
+  "short_name": "Poké Builder",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#10151d",
+  "theme_color": "#111a25",
+  "description": "Build and manage Pokémon teams offline."
+}
